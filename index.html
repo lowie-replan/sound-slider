@@ -43,19 +43,35 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
 .fill{background:#ff4f8b;width:0}
 .knob{position:absolute;top:50%;left:0;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:#ffd23f;border:5px solid #fff;box-shadow:0 4px 0 rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:1.7rem}
 .knob::after{content:"⭐"}
+.item{flex-wrap:wrap}
+.item .pli{flex:1 1 130px;font-size:1.1rem;border-color:#ff9fc4;color:#c2185b}
+.pl{font-size:2.2rem;font-weight:600;color:#e0338a;text-shadow:0 2px 0 #fff;min-height:2.4rem;text-align:center}
+#sayPl{background:#2ec4b6}
+.mk{display:flex;gap:8px;width:100%;flex-wrap:wrap;justify-content:center}
+.mk input{flex:1 1 180px;min-width:0;font:inherit;font-size:1.3rem;font-weight:600;padding:8px 14px;border-radius:20px;border:4px solid #b79cff;background:#fff;color:var(--ink)}
+#mk{background:#9b5de5}
+.item .dr{background:#9b5de5}
+.auth{width:100%;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;font-weight:500;text-align:center}
+.auth div{width:100%}
+.auth input{flex:1 1 150px;min-width:0;font:inherit;padding:8px 12px;border-radius:16px;border:3px solid #b79cff;background:#fff;color:var(--ink)}
+.auth button{padding:6px 16px;font-size:.95rem}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
 <section class="screen on" id="s1">
   <h1>🌈 Sound Slider ⭐</h1>
-  <p class="sub">Upload your pictures and type the word for each one.</p>
+  <p class="sub">Type a word and tap Make picture, or upload your own pictures.</p>
   <div class="card">
+    <div class="auth" id="auth"></div>
     <div id="list"></div>
-    <button id="add">＋ Add pictures</button>
+    <div class="mk"><input type="text" id="mkw" placeholder="Type a word, e.g. fish" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="mk">✨ Make picture</button></div>
+    <button id="add">＋ Or upload pictures</button>
     <input type="file" id="file" accept="image/*" multiple hidden>
     <div class="hint">Sounds like <b>sh</b> are grouped automatically. To choose your own groups, type hyphens, like <b>s-t-ar</b>.</div>
     <div class="sub" id="msg"></div>
+    <div class="hint" id="note"></div>
     <button class="main" id="go" disabled>Start ➜</button>
   </div>
 </section>
@@ -66,6 +82,7 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
   <div class="row">
     <button id="showPic">Show picture</button>
     <button id="sayEn">🔊 Say word</button>
+    <button id="sayPl">🔊 Po polsku</button>
     <button id="reset">Reset</button>
     <button id="back">← Edit list</button>
   </div>
@@ -73,16 +90,42 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
     <div class="boxes" id="boxes"></div>
     <div class="track" id="track"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
   </div>
+  <div class="pl" id="plShow"></div>
   <button class="main" id="next">Next picture ➜</button>
   <p class="hint">Drag the star from left to right. Each sound lights up as you reach it.</p>
 </section>
 
 <script>
+// ===== PASTE YOUR SUPABASE DETAILS HERE (Project Settings > API) =====
+var SUPABASE_URL="https://enfrlgxpssolsrqksziv.supabase.co";   // example: https://abcdxyz.supabase.co
+var SUPABASE_KEY="sb_publishable_vsAylXS6qBKiXGO4DXKGkA_VQ6HkThl";   // the "anon" / "publishable" key
+// =====================================================================
 (function(){
   var $=function(id){return document.getElementById(id)};
   var tri=["igh","tch"],
       di=["sh","ch","th","ck","ng","wh","ph","qu","kn","wr","ee","oo","ai","ay","oa","ou","ow","oi","oy","ar","or","er","ir","ur","ea","ie","ue","ew","au","aw","ll","ss","ff","zz"];
-  var items=[],MAX=30,idx=0,picShown=false,wasAll=false,dragging=false,boxEls=[];
+  var items=[],MAX=30,idx=0,picShown=false,wasAll=false,dragging=false,boxEls=[],sampler=null,cache={};
+  var dict={cat:'kot',dog:'pies',fish:'ryba',sun:'słońce',hat:'kapelusz',bus:'autobus',car:'samochód',tree:'drzewo',book:'książka',ship:'statek',chair:'krzesło',moon:'księżyc',star:'gwiazda',frog:'żaba',duck:'kaczka',bed:'łóżko',cup:'kubek',pen:'długopis',egg:'jajko',apple:'jabłko',house:'dom',milk:'mleko',bird:'ptak',boat:'łódź',rain:'deszcz',cow:'krowa',pig:'świnia',hen:'kura',ball:'piłka',shoe:'but',sheep:'owca',fork:'widelec',bag:'torba',door:'drzwi',table:'stół',flower:'kwiat',water:'woda',bread:'chleb',cheese:'ser',mouse:'mysz',fox:'lis',lion:'lew',bear:'niedźwiedź',horse:'koń',chicken:'kurczak',thumb:'kciuk',brush:'szczotka',king:'król',ring:'pierścionek',rabbit:'królik',snake:'wąż',bee:'pszczoła',ant:'mrówka',bat:'nietoperz',bell:'dzwonek',bike:'rower',box:'pudełko',cake:'ciasto',clock:'zegar',cloud:'chmura',coat:'płaszcz',crab:'krab',drum:'bęben',ear:'ucho',eye:'oko',hand:'ręka',leg:'noga',nose:'nos',mouth:'usta',head:'głowa',foot:'stopa',finger:'palec',girl:'dziewczynka',boy:'chłopiec',man:'mężczyzna',baby:'dziecko',mom:'mama',dad:'tata',sock:'skarpetka',pan:'patelnia',pot:'garnek',jam:'dżem',jug:'dzbanek',kite:'latawiec',leaf:'liść',lamp:'lampa',map:'mapa',net:'siatka',nut:'orzech',owl:'sowa',pear:'gruszka',pizza:'pizza',plane:'samolot',rice:'ryż',road:'droga',sand:'piasek',sea:'morze',snow:'śnieg',soap:'mydło',spoon:'łyżka',train:'pociąg',truck:'ciężarówka',wolf:'wilk',worm:'robak',zebra:'zebra',window:'okno',banana:'banan',orange:'pomarańcza',carrot:'marchewka',tomato:'pomidor',potato:'ziemniak',shirt:'koszula',dress:'sukienka',teacher:'nauczyciel',school:'szkoła'};
+  function sayL(t,l){if(!window.speechSynthesis||!t)return;speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang=l;u.rate=0.8;speechSynthesis.speak(u)}
+  function autoPl(p,el){
+    if(p.touched)return;
+    var w=p.word.replace(/-/g,'');
+    if(!w){p.pl='';el.value='';return}
+    var hit=dict[w]||cache[w];
+    if(hit){p.pl=hit;el.value=hit;return}
+    p.pl='';el.value='';
+    if(!sampler||w.length<2)return;
+    clearTimeout(p.tm);
+    p.tm=setTimeout(function(){
+      if(p.touched||p.word.replace(/-/g,'')!==w)return;
+      el.placeholder='…';
+      sampler('Translate the English word "'+w+'" into Polish. Reply with only the Polish word, nothing else.').then(function(r){
+        var t=(r.text||'').trim().replace(/[."]+$/,'').toLowerCase();
+        if(t&&t.length<40){cache[w]=t;if(!p.touched&&p.word.replace(/-/g,'')===w){p.pl=t;el.value=t}}
+        el.placeholder='Polish';
+      }).catch(function(){el.placeholder='Polish'});
+    },800);
+  }
 
   function groupsOf(w){
     if(w.indexOf("-")>-1)return w.split("-").filter(Boolean);
@@ -116,20 +159,148 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
     var l=$("list");l.innerHTML="";
     items.forEach(function(p,i){
       var d=document.createElement("div");d.className="item";
-      var im=new Image();im.src=p.src;
+      var im=new Image();im.src=p.src;im.title="Tap to use your own picture";im.style.cursor="pointer";im.onclick=function(){swap(p)};if(p.busy)im.style.opacity=".35";
       var t=document.createElement("input");t.type="text";t.value=p.word;t.placeholder="Type the word";
       t.autocapitalize="off";t.spellcheck=false;
       var g=document.createElement("div");g.className="gr";showGroups(p,g);
-      t.oninput=function(){p.word=t.value.toLowerCase().replace(/[^a-z-]/g,"");showGroups(p,g);check()};
+      t.oninput=function(){p.word=t.value.toLowerCase().replace(/[^a-z-]/g,"");showGroups(p,g);p.touched=false;autoPl(p,pi);cloudUpdate(p);check()};
+      var pi=document.createElement("input");pi.type="text";pi.className="pli";pi.placeholder="Polish";pi.value=p.pl||"";pi.spellcheck=false;
+      pi.oninput=function(){p.pl=pi.value.trim();p.touched=pi.value.trim()!=="";cloudUpdate(p)};
       var x=document.createElement("button");x.textContent="✕";x.setAttribute("aria-label","Remove");
-      x.onclick=function(){items.splice(i,1);renderList()};
-      d.appendChild(im);d.appendChild(t);d.appendChild(g);d.appendChild(x);l.appendChild(d);
+      x.onclick=function(){cloudDelete(p);items.splice(i,1);renderList()};
+      d.appendChild(im);d.appendChild(t);d.appendChild(g);d.appendChild(pi);if(sampler){var dr=document.createElement("button");dr.className="dr";dr.textContent="🎨";dr.title="Draw a new picture with AI";dr.disabled=!!p.busy;dr.onclick=function(){draw(p)};d.appendChild(dr)}d.appendChild(x);l.appendChild(d);autoPl(p,pi);
     });
     check();
   }
   $("add").onclick=function(){$("file").click()};
+
+  // ---- make a picture from a typed word ----
+  var emoji={cat:'🐱',dog:'🐶',fish:'🐟',sun:'☀️',hat:'🎩',bus:'🚌',car:'🚗',tree:'🌳',book:'📖',ship:'🚢',chair:'🪑',moon:'🌙',star:'⭐',frog:'🐸',duck:'🦆',bed:'🛏️',cup:'☕',pen:'🖊️',egg:'🥚',apple:'🍎',house:'🏠',milk:'🥛',bird:'🐦',boat:'⛵',rain:'🌧️',cow:'🐄',pig:'🐷',hen:'🐔',ball:'⚽',shoe:'👟',sheep:'🐑',fork:'🍴',bag:'👜',door:'🚪',flower:'🌸',water:'💧',bread:'🍞',cheese:'🧀',mouse:'🐭',fox:'🦊',lion:'🦁',bear:'🐻',horse:'🐴',chicken:'🐔',thumb:'👍',brush:'🖌️',king:'🤴',ring:'💍',rabbit:'🐰',snake:'🐍',bee:'🐝',ant:'🐜',bat:'🦇',bell:'🔔',bike:'🚲',box:'📦',cake:'🍰',clock:'🕐',cloud:'☁️',coat:'🧥',crab:'🦀',drum:'🥁',ear:'👂',eye:'👁️',hand:'✋',leg:'🦵',nose:'👃',mouth:'👄',foot:'🦶',finger:'☝️',girl:'👧',boy:'👦',man:'👨',baby:'👶',mom:'👩',dad:'👨',sock:'🧦',pan:'🍳',pot:'🍲',jam:'🍓',kite:'🪁',leaf:'🍃',lamp:'💡',map:'🗺️',nut:'🥜',owl:'🦉',pear:'🍐',pizza:'🍕',plane:'✈️',rice:'🍚',road:'🛣️',sand:'🏖️',sea:'🌊',snow:'❄️',soap:'🧼',spoon:'🥄',train:'🚆',truck:'🚚',wolf:'🐺',worm:'🐛',zebra:'🦓',banana:'🍌',orange:'🍊',carrot:'🥕',tomato:'🍅',potato:'🥔',shirt:'👕',dress:'👗',teacher:'🧑‍🏫',school:'🏫',elephant:'🐘',monkey:'🐵',tiger:'🐯',turtle:'🐢',whale:'🐳',butterfly:'🦋',spider:'🕷️',strawberry:'🍓',grape:'🍇',lemon:'🍋',burger:'🍔',hamburger:'🍔',icecream:'🍦',giraffe:'🦒',penguin:'🐧',dolphin:'🐬',rocket:'🚀',heart:'❤️',fire:'🔥',tooth:'🦷',key:'🔑',gift:'🎁',phone:'📱',camera:'📷',guitar:'🎸',piano:'🎹'};
+  function note(t){$("note").textContent=t}
+
+  // ---- Supabase (saves your list and pictures to your account) ----
+  var sb=null,user=null,saveTimers={};
+  function pubUrl(path){return sb.storage.from("pics").getPublicUrl(path).data.publicUrl}
+  function itemFromRow(r){
+    var p={id:r.id,word:r.word,pl:r.pl||"",touched:!!r.pl,emojiChar:r.emoji||null,path:r.image_path||null};
+    p.src=r.emoji?emojiSrc(r.emoji):(r.image_path?pubUrl(r.image_path):emojiSrc("?"));
+    return p;
+  }
+  function loadCloud(){
+    sb.from("items").select("*").order("position").order("created_at").then(function(res){
+      if(res.error){note("Could not load: "+res.error.message);return}
+      items=res.data.map(itemFromRow);renderList();
+    });
+  }
+  function renderAuth(){
+    var a=$("auth");a.innerHTML="";
+    if(!sb)return;
+    if(user){
+      var s=document.createElement("span");s.textContent="☁️ Saved to your account: "+user.email;
+      var b=document.createElement("button");b.textContent="Sign out";b.onclick=function(){sb.auth.signOut()};
+      a.appendChild(s);a.appendChild(b);return;
+    }
+    var t=document.createElement("div");t.textContent="Sign in to save your pictures and open them on any device.";
+    var e=document.createElement("input");e.type="email";e.placeholder="Email";
+    var pw=document.createElement("input");pw.type="password";pw.placeholder="Password (6+ characters)";
+    var si=document.createElement("button");si.textContent="Sign in";
+    var su=document.createElement("button");su.textContent="Create account";
+    si.onclick=function(){sb.auth.signInWithPassword({email:e.value.trim(),password:pw.value}).then(function(r){note(r.error?r.error.message:"")})};
+    su.onclick=function(){sb.auth.signUp({email:e.value.trim(),password:pw.value}).then(function(r){note(r.error?r.error.message:"Account created. If asked, check your email to confirm, then sign in.")})};
+    [t,e,pw,si,su].forEach(function(n){a.appendChild(n)});
+  }
+  function initCloud(){
+    if(!(SUPABASE_URL&&SUPABASE_KEY&&window.supabase))return;
+    sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    sb.auth.onAuthStateChange(function(ev,session){
+      setTimeout(function(){
+        user=session?session.user:null;renderAuth();
+        if(user)loadCloud();else{items=[];renderList()}
+      },0);
+    });
+    renderAuth();
+  }
+  function needSignIn(){if(sb&&!user){note("Please sign in first so your pictures are saved.");return true}return false}
+  function compress(f){
+    return new Promise(function(res,rej){
+      var u=URL.createObjectURL(f),im=new Image();
+      im.onload=function(){
+        var s=Math.min(1,1400/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*s),h=Math.round(im.naturalHeight*s),c=document.createElement("canvas");
+        c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);
+        c.toBlob(function(b){URL.revokeObjectURL(u);res(b)},"image/jpeg",0.85);
+      };
+      im.onerror=rej;im.src=u;
+    });
+  }
+  function uploadBlob(blob){
+    var path=user.id+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
+    return sb.storage.from("pics").upload(path,blob,{contentType:"image/jpeg"}).then(function(r){if(r.error)throw r.error;return path});
+  }
+  function cloudInsert(p){
+    if(!(sb&&user))return Promise.resolve();
+    return sb.from("items").insert({word:p.word,pl:p.pl||"",emoji:p.emojiChar||null,image_path:p.path||null,position:items.indexOf(p)}).select().single().then(function(r){
+      if(r.error)note("Save failed: "+r.error.message);else p.id=r.data.id;
+    });
+  }
+  function cloudUpdate(p){
+    if(!(sb&&user&&p.id))return;
+    clearTimeout(saveTimers[p.id]);
+    saveTimers[p.id]=setTimeout(function(){
+      sb.from("items").update({word:p.word,pl:p.pl||"",emoji:p.emojiChar||null,image_path:p.path||null}).eq("id",p.id).then(function(r){if(r.error)note("Save failed: "+r.error.message)});
+    },600);
+  }
+  function cloudDelete(p){
+    if(!(sb&&user&&p.id))return;
+    sb.from("items").delete().eq("id",p.id).then(function(){});
+    if(p.path)sb.storage.from("pics").remove([p.path]);
+  }
+  function cloudUploadMany(files){
+    if(needSignIn())return;
+    note("Uploading "+files.length+" picture"+(files.length>1?"s":"")+"…");
+    files.reduce(function(chain,f){
+      return chain.then(function(){
+        return compress(f).then(uploadBlob).then(function(path){
+          var w=f.name.replace(/\.[^.]+$/,"").toLowerCase().replace(/[^a-z]/g,"");
+          var p={word:w,pl:dict[w]||"",path:path,src:pubUrl(path)};
+          items.push(p);return cloudInsert(p);
+        });
+      });
+    },Promise.resolve()).then(function(){note("");renderList()}).catch(function(e){note("Upload failed: "+(e.message||e));renderList()});
+  }
+  function emojiSrc(e){return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="28" fill="#fff7d6"/><text x="100" y="108" font-size="130" fill="#bbb" text-anchor="middle" dominant-baseline="central">'+e+'</text></svg>')}
+  function addWord(){
+    var w=$("mkw").value.toLowerCase().replace(/[^a-z-]/g,"");
+    if(!w||items.length>=MAX||needSignIn())return;
+    var key=w.replace(/-/g,""),p={word:w,pl:dict[key]||"",emojiChar:emoji[key]||null,src:emoji[key]?emojiSrc(emoji[key]):emojiSrc("?")};
+    items.push(p);cloudInsert(p);$("mkw").value="";note("");
+    if(!emoji[key]){
+      if(sampler)draw(p);
+      else note("No built-in picture for "+key+". Tap the picture to upload your own, or use the Claude page so AI can draw it.");
+    }
+    renderList();
+  }
+  function draw(p){
+    if(!sampler)return;
+    var w=p.word.replace(/-/g,"");
+    p.busy=true;note("Drawing "+w+"…");renderList();
+    sampler('Draw a simple, cute, colorful cartoon picture of: '+w+'. It is for young children learning English. Output ONE SVG only: viewBox="0 0 200 200", a soft light background rectangle, bold simple shapes, no text or letters, no external links, no scripts. Reply with only the SVG code.').then(function(r){
+      var m=(r.text||'').match(/<svg[\s\S]*<\/svg>/i),s=m&&m[0];
+      if(s&&!/<script|\son\w+\s*=|href\s*=|<image|<foreignObject/i.test(s)){
+        if(!/xmlns=/i.test(s))s=s.replace(/<svg/i,'<svg xmlns="http://www.w3.org/2000/svg"');
+        p.src='data:image/svg+xml,'+encodeURIComponent(s);note("");
+      }else note("Could not draw that one. Press the paint button to try again, or upload a photo.");
+    }).catch(function(){note("Could not draw that one. Try again, or upload a photo.")}).then(function(){p.busy=false;renderList()});
+  }
+  function swap(p){
+    var inp=document.createElement("input");inp.type="file";inp.accept="image/*";
+    inp.onchange=function(){var f=inp.files[0];if(!f)return;if(sb){if(needSignIn())return;compress(f).then(uploadBlob).then(function(path){if(p.path)sb.storage.from("pics").remove([p.path]);p.path=path;p.emojiChar=null;p.src=pubUrl(path);cloudUpdate(p);renderList()}).catch(function(e){note("Upload failed: "+(e.message||e))});return}var r=new FileReader();r.onload=function(){p.src=r.result;renderList()};r.readAsDataURL(f)};
+    inp.click();
+  }
+  $("mk").onclick=addWord;
+  $("mkw").onkeydown=function(e){if(e.key==="Enter")addWord()};
   $("file").onchange=function(e){
     var files=Array.prototype.slice.call(e.target.files).slice(0,MAX-items.length);
+    if(sb){e.target.value="";cloudUploadMany(files);return}
     var res=new Array(files.length),left=files.length;
     files.forEach(function(f,n){
       var r=new FileReader();
@@ -146,6 +317,7 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
   function show(i){
     idx=i;var p=items[i];
     $("count").textContent="Picture "+(i+1)+" of "+items.length;
+    $("plShow").textContent=p.pl||"";
     picShown=false;$("pic").textContent="?";$("showPic").textContent="Show picture";
     var b=$("boxes");b.innerHTML="";boxEls=[];
     groupsOf(p.word).forEach(function(t){var d=document.createElement("div");d.className="box";d.textContent=t;b.appendChild(d);boxEls.push(d)});
@@ -162,6 +334,7 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
     this.textContent=picShown?"Hide picture":"Show picture";
   };
   $("sayEn").onclick=function(){say(items[idx].word.replace(/-/g,""))};
+  $("sayPl").onclick=function(){sayL(items[idx].pl,"pl-PL")};
   $("reset").onclick=function(){setX(0)};
 
   function setX(x){
@@ -186,6 +359,8 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
   tr.addEventListener("pointercancel",function(){dragging=false});
   window.addEventListener("resize",function(){if($("s2").classList.contains("on"))setX0(0)});
   renderList();
+  initCloud();
+  if(window.claude&&claude.use){claude.use("sample").then(function(s){sampler=s;renderList()}).catch(function(){})}
 })();
 </script>
 </body>
