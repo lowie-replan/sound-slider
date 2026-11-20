@@ -29,7 +29,9 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
 .hint{font-size:.95rem;color:var(--ink);font-weight:500;text-align:center;background:rgba(255,255,255,.75);padding:4px 14px;border-radius:14px}
 .count{font-weight:700;font-size:1.3rem;color:#fff;background:#9b5de5;padding:4px 18px;border-radius:999px;box-shadow:0 4px 0 rgba(0,0,0,.2)}
 .pic{width:min(100%,480px);height:320px;border:5px solid #ffd166;border-radius:28px;background:#fff;color:#ff9f1c;font-size:6rem;box-shadow:0 8px 0 #f2b84b;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.pic img{width:100%;height:100%;object-fit:contain}
+.pic{position:relative}
+.pic .q{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.pic img{position:relative;display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
 .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 .wrap{position:relative;display:inline-block;max-width:100%;margin-top:10px}
 .boxes{display:flex;gap:10px;justify-content:center}
@@ -55,6 +57,15 @@ button.main{background:linear-gradient(#ff8fb8,#ff4f8b);font-size:1.4rem;padding
 .auth div{width:100%}
 .auth input{flex:1 1 150px;min-width:0;font:inherit;padding:8px 12px;border-radius:16px;border:3px solid #b79cff;background:#fff;color:var(--ink)}
 .auth button{padding:6px 16px;font-size:.95rem}
+#boxes{transition:opacity .35s}
+.train{position:fixed;left:0;z-index:40;display:flex;align-items:flex-end;pointer-events:none;will-change:transform}
+.flat{flex:none}
+.cargo{display:flex;gap:10px}
+.deck{position:relative;height:16px;margin-top:4px;border-radius:6px;background:#5a3b22;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.deck::before,.deck::after{content:"";position:absolute;bottom:-14px;width:22px;height:22px;border-radius:50%;background:#333;border:4px solid #999}
+.deck::before{left:12%}.deck::after{right:12%}
+.link{flex:none;width:16px;height:6px;background:#444;margin-bottom:16px}
+.loco{flex:none;font-size:clamp(3.4rem,11vw,6rem);line-height:1;transform:scaleX(-1)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 </head>
@@ -308,42 +319,93 @@ var SUPABASE_KEY="sb_publishable_vsAylXS6qBKiXGO4DXKGkA_VQ6HkThl";   // the "ano
   };
 
   // Screen 2
+  // the picture is revealed gradually, left to right, as the star is slid (and hides again when slid back)
+  var picBox=$("pic"),picQ=document.createElement("span"),picImg=new Image(),picForced=false,revP=0;
+  picQ.className="q";picQ.textContent="?";picImg.alt="";picImg.draggable=false;
+  picBox.textContent="";picBox.appendChild(picQ);picBox.appendChild(picImg);
+  function setReveal(p){
+    revP=Math.max(0,Math.min(1,p));
+    var r=picForced?1:revP,S=15,a=r*(100+S)-S;   // soft edge, S% wide
+    var m=r>=1?"none":"linear-gradient(90deg,#000 "+a+"%,transparent "+(a+S)+"%)";
+    picImg.style.webkitMaskImage=m;picImg.style.maskImage=m;
+    picQ.style.opacity=String(1-r);
+  }
   function show(i){
     idx=i;var p=items[i];
     $("count").textContent="Picture "+(i+1)+" of "+items.length;
     $("plShow").textContent=p.pl||"";
-    picShown=false;$("pic").textContent="?";$("showPic").textContent="Show picture";
+    picForced=false;picImg.src=p.src;$("showPic").textContent="Show picture";
     var b=$("boxes");b.innerHTML="";boxEls=[];
     groupsOf(p.word).forEach(function(t){var d=document.createElement("div");d.className="box";d.textContent=t;b.appendChild(d);boxEls.push(d)});
     $("next").textContent=i===items.length-1?"↺ Back to first picture":"Next picture ➜";
-    wasAll=false;setX0(0);
+    clearTrain();wasAll=false;setX0(0);
   }
   $("go").onclick=function(){$("s1").classList.remove("on");$("s2").classList.add("on");show(0)};
   $("back").onclick=function(){$("s2").classList.remove("on");$("s1").classList.add("on")};
   $("next").onclick=function(){show((idx+1)%items.length)};
-  $("showPic").onclick=function(){
-    picShown=!picShown;
-    var p=$("pic");p.innerHTML="";
-    if(picShown){var im=new Image();im.src=items[idx].src;p.appendChild(im)}else p.textContent="?";
-    this.textContent=picShown?"Hide picture":"Show picture";
+  $("showPic").onclick=function(){   // peek: show the whole picture, or go back to following the slider
+    picForced=!picForced;
+    this.textContent=picForced?"Hide picture":"Show picture";
+    setReveal(revP);
   };
   $("sayEn").onclick=function(){say(items[idx].word.replace(/-/g,""))};
   $("sayPl").onclick=function(){sayL(items[idx].pl,"pl-PL")};
-  $("reset").onclick=function(){setX(0)};
+  $("reset").onclick=function(){clearTrain();wasAll=false;setX(0)};
 
   function setX(x){
+    if(taken){var tw0=$("track").clientWidth;x=Math.max(0,Math.min(tw0,x));$("fill").style.width=x+"px";$("knob").style.left=x+"px";setReveal(tw0?x/tw0:0);return}
     setX0(x);
     var all=boxEls.length>0&&boxEls.every(function(b){return b.classList.contains("lit")});
-    if(all&&!wasAll)say(items[idx].word.replace(/-/g,""));
+    if(all&&!wasAll){say(items[idx].word.replace(/-/g,""));startTrain()}
     wasAll=all;
   }
   function setX0(x){
     var w=$("track").clientWidth;
     x=Math.max(0,Math.min(w,x));
+    setReveal(w?x/w:0);
     $("fill").style.width=x+"px";$("knob").style.left=x+"px";
     boxEls.forEach(function(b){
       b.classList.toggle("lit",x>0&&x>=b.offsetLeft+b.offsetWidth*0.4);
     });
+  }
+  var trainEl=null,trainAnim=null,trainTm=null,taken=false;   // taken = the train has carried the word away
+  function clearTrain(){
+    taken=false;
+    clearTimeout(trainTm);
+    if(trainAnim){try{trainAnim.cancel()}catch(e){}trainAnim=null}
+    if(trainEl&&trainEl.parentNode)trainEl.parentNode.removeChild(trainEl);
+    trainEl=null;$("boxes").style.opacity="";
+  }
+  // the train has left the screen: remove it, but leave the word gone (it only returns on Reset or Next picture)
+  function trainDone(){
+    clearTimeout(trainTm);
+    if(trainAnim){try{trainAnim.cancel()}catch(e){}trainAnim=null}
+    if(trainEl&&trainEl.parentNode)trainEl.parentNode.removeChild(trainEl);
+    trainEl=null;
+    $("boxes").style.opacity="0";taken=true;
+  }
+  // a real train drives across the screen. Its flat wagon at the BACK picks up the finished word and carries it away
+  function startTrain(){
+    if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    clearTrain();
+    var boxes=$("boxes"),br=boxes.getBoundingClientRect();
+    var t=document.createElement("div");t.className="train";
+    var flat=document.createElement("div");flat.className="flat";
+    var cargo=document.createElement("div");cargo.className="cargo";cargo.style.visibility="hidden";
+    boxEls.forEach(function(b){var c=b.cloneNode(true);c.style.transform="none";c.style.transition="none";cargo.appendChild(c)});
+    var deck=document.createElement("div");deck.className="deck";
+    flat.appendChild(cargo);flat.appendChild(deck);t.appendChild(flat);
+    function part(cls,txt){var e=document.createElement("div");e.className=cls;if(txt)e.textContent=txt;return e}
+    t.appendChild(part("link"));t.appendChild(part("loco","🚃"));t.appendChild(part("link"));t.appendChild(part("loco","🚂"));
+    t.style.top="0px";document.body.appendChild(t);
+    t.style.top=(br.top-cargo.getBoundingClientRect().top)+"px";   // line the cargo up with the word
+    trainEl=t;
+    var tw=t.offsetWidth,vw=window.innerWidth,dist=vw+tw,dur=Math.max(4000,dist/0.3);
+    if(!t.animate){clearTrain();return}
+    trainAnim=t.animate([{transform:"translateX("+(-tw)+"px)"},{transform:"translateX("+vw+"px)"}],{duration:dur,easing:"linear",fill:"forwards"});
+    // when the back wagon reaches the word, the word is loaded onto it
+    trainTm=setTimeout(function(){boxes.style.opacity="0";cargo.style.visibility="visible"},Math.max(0,(br.left+tw)/dist*dur));
+    trainAnim.onfinish=trainDone;
   }
   var tr=$("track");
   function move(e){setX(e.clientX-tr.getBoundingClientRect().left)}
